@@ -26,7 +26,7 @@
         <div class="kanban-board" id="kanbanBoard"></div>
     </div>
 
-    <!-- Modal de adicionar/editar candidato (apenas Nome, Polo, Início, Término) -->
+    <!-- Modal de adicionar/editar candidato com anexos RG -->
     <div id="employeeModal" class="modal hidden">
         <div class="modal-card">
             <div class="modal-header">
@@ -39,8 +39,8 @@
                     <input type="text" id="empNome" required class="input-light">
                 </div>
                 <div class="field">
-                    <label>Polo</label>
-                    <input type="text" id="empPolo" class="input-light" placeholder="Ex: Polo Industrial">
+                    <label>Cargo</label>
+                    <input type="text" id="empCargo" class="input-light" placeholder="Ex: Analista de RH">
                 </div>
                 <div class="field">
                     <label>Início do expediente</label>
@@ -50,6 +50,19 @@
                     <label>Término do expediente</label>
                     <input type="time" id="empFim" class="input-light">
                 </div>
+
+                <!-- ANEXOS -->
+                <div class="field">
+                    <label>RG Frente (imagem)</label>
+                    <input type="file" id="empRgFrente" accept="image/jpeg,image/png,image/jpg" class="input-light">
+                    <small style="color:#aaa;">Máx. 200KB (JPG/PNG)</small>
+                </div>
+                <div class="field">
+                    <label>RG Verso (imagem)</label>
+                    <input type="file" id="empRgVerso" accept="image/jpeg,image/png,image/jpg" class="input-light">
+                    <small style="color:#aaa;">Máx. 200KB (JPG/PNG)</small>
+                </div>
+
                 <input type="hidden" id="editId" value="">
                 <div class="modal-actions">
                     <button type="button" id="cancelModalBtn" class="btn-secondary">Cancelar</button>
