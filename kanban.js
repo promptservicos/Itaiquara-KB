@@ -779,26 +779,6 @@ themeToggle.addEventListener('click', () => {
     themeToggle.innerHTML = isLight ? '<i class="fas fa-sun"></i> Tema' : '<i class="fas fa-moon"></i> Tema';
 });
 
-function checkAuth() {
-    setLoading(true);
-    onAuthStateChanged(auth, (user) => {
-        setLoading(false);
-        if (!user) {
-            window.location.href = 'index.html';
-        } else {
-            isViewOnly = (user.email === "itaiquara@promptservicos.com.br");
-            if (isViewOnly) {
-                addBtn.style.display = 'none';
-            } else {
-                addBtn.style.display = 'flex';
-            }
-            addGlobalControls();
-            renderBoard();
-            subscribeToCandidates();
-        }
-    });
-}
-
 logoutBtn.addEventListener('click', async () => {
     setLoading(true);
     await signOut(auth);
