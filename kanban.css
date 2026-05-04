@@ -1,0 +1,664 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%);
+    color: #e0e0e0;
+    transition: background 0.2s, color 0.2s;
+    min-height: 100vh;
+}
+
+.app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.kanban-header {
+    background: rgba(12, 12, 12, 0.85);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid rgba(0, 150, 136, 0.5);
+    padding: 0.8rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    z-index: 10;
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.logo-area i {
+    font-size: 1.6rem;
+    color: #009688;
+}
+
+.logo-area h1 {
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: #ffffff;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.btn-icon-text {
+    background: rgba(30, 30, 30, 0.9);
+    border: 1px solid rgba(0, 150, 136, 0.5);
+    color: #009688;
+    padding: 0.5rem 1rem;
+    border-radius: 40px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s;
+}
+
+.btn-icon-text:hover {
+    background: #009688;
+    color: white;
+    border-color: #009688;
+    transform: translateY(-1px);
+}
+
+/* ---------- CONTROLES GLOBAIS (BUSCA E ORDENAÇÃO) ---------- */
+.search-box {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.search-box i {
+    position: absolute;
+    left: 12px;
+    color: #009688;
+    font-size: 0.8rem;
+    pointer-events: none;
+}
+
+.search-input {
+    padding: 0.5rem 1rem 0.5rem 2.2rem;
+    background: rgba(30, 30, 30, 0.9);
+    border: 1px solid rgba(0, 150, 136, 0.5);
+    border-radius: 40px;
+    color: #e0e0e0;
+    font-size: 0.85rem;
+    width: 220px;
+    outline: none;
+    transition: all 0.2s;
+}
+
+.search-input:focus {
+    border-color: #009688;
+    background: #2a2a2a;
+    box-shadow: 0 0 0 2px rgba(0, 150, 136, 0.2);
+}
+
+.search-input::placeholder {
+    color: #aaa;
+    font-weight: 400;
+}
+
+.sort-select {
+    padding: 0.5rem 2rem 0.5rem 1rem;
+    background: rgba(30, 30, 30, 0.9);
+    border: 1px solid rgba(0, 150, 136, 0.5);
+    border-radius: 40px;
+    color: #e0e0e0;
+    font-size: 0.85rem;
+    cursor: pointer;
+    /* Remove a aparência nativa do select (seta padrão) */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    /* Seta personalizada via SVG */
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23009688' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px;
+}
+
+.sort-select:hover, .search-input:hover {
+    background: #2a2a2a;
+    border-color: #009688;
+}
+
+.sort-select:focus {
+    outline: none;
+    border-color: #009688;
+    box-shadow: 0 0 0 2px rgba(0, 150, 136, 0.2);
+}
+
+/* Ajuste para os controles ficarem alinhados verticalmente */
+.header-actions .search-box,
+.header-actions .sort-select {
+    margin: 0;
+}
+
+.kanban-board {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 1rem;
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+    flex-wrap: nowrap;
+}
+
+.columns-container {
+    display: flex;
+    gap: 1rem;
+    height: 100%;
+}
+
+.kanban-column {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 16px;
+    border: 1px solid rgba(0, 150, 136, 0.3);
+    display: flex;
+    flex-direction: column;
+    width: 300px;
+    flex-shrink: 0;
+    height: calc(100vh - 100px);
+}
+
+.column-header {
+    padding: 0.8rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid rgba(0, 150, 136, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.column-header h3 {
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.column-count {
+    background: #009688;
+    color: white;
+    border-radius: 40px;
+    padding: 0.1rem 0.6rem;
+    font-size: 0.7rem;
+}
+
+.cards-container {
+    flex: 1;
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.card {
+    background: #202020;
+    border-radius: 14px;
+    border: 1px solid #3a3a3a;
+    transition: all 0.2s;
+    cursor: grab;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+
+.card:active {
+    cursor: grabbing;
+}
+
+.card:hover {
+    border-color: #009688;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,150,136,0.2);
+}
+
+.card-header {
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.card-info {
+    width: 100%;
+}
+
+.card-nome {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #fff;
+    word-break: break-word;
+}
+
+.card-actions-row {
+    display: flex;
+    justify-content: flex-start;
+    gap: 0.3rem;
+}
+
+.move-btn, .delete-card-btn, .expand-btn {
+    background: #2c2c2c;
+    border: none;
+    color: #009688;
+    width: 28px;
+    height: 28px;
+    border-radius: 28px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+.move-btn:hover, .delete-card-btn:hover, .expand-btn:hover {
+    background: #009688;
+    color: white;
+}
+
+.card-details {
+    padding: 0 0.6rem 0.6rem 0.6rem;
+    border-top: 1px solid #3a3a3a;
+    display: none;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.card.expanded .card-details {
+    display: flex;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    padding: 0.2rem 0;
+    border-bottom: 1px solid rgba(0,150,136,0.2);
+}
+
+.detail-label {
+    color: #aaa;
+}
+
+.detail-value {
+    color: #009688;
+    font-weight: 500;
+}
+
+.edit-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    margin-top: 0.4rem;
+}
+
+.edit-fields input, .edit-fields select {
+    background: #2c2c2c;
+    border: 1px solid #009688;
+    border-radius: 14px;
+    padding: 0.3rem 0.6rem;
+    color: white;
+    font-size: 0.75rem;
+}
+
+.edit-actions {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: flex-end;
+}
+
+.btn-save-edit, .btn-cancel-edit {
+    background: #2c2c2c;
+    border: none;
+    padding: 0.2rem 0.8rem;
+    border-radius: 30px;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.btn-save-edit {
+    background: #009688;
+    color: white;
+}
+
+.btn-edit-card {
+    background: #2c2c2c;
+    border: none;
+    border-radius: 30px;
+    padding: 0.3rem;
+    font-size: 0.7rem;
+    cursor: pointer;
+    color: #ccc;
+    margin-top: 0.2rem;
+}
+
+.btn-edit-card:hover {
+    background: #009688;
+    color: white;
+}
+
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.8);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-card, .confirm-card {
+    background: #1a1a1a;
+    border-radius: 28px;
+    border: 1px solid #009688;
+    max-width: 420px;
+    width: 90%;
+    padding: 1.2rem;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.modal-header h3 {
+    color: white;
+    font-size: 1.2rem;
+}
+
+.modal-close {
+    background: transparent;
+    border: none;
+    font-size: 1.2rem;
+    color: #009688;
+    cursor: pointer;
+}
+
+.field {
+    margin-bottom: 0.8rem;
+}
+
+.field label {
+    display: block;
+    font-size: 0.75rem;
+    margin-bottom: 0.2rem;
+    color: #ddd;
+}
+
+.input-light {
+    width: 100%;
+    padding: 0.5rem 0.7rem;
+    background: #2c2c2c;
+    border: 1px solid #444;
+    border-radius: 20px;
+    color: white;
+    font-size: 0.85rem;
+}
+
+.modal-actions, .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.8rem;
+    margin-top: 1rem;
+}
+
+.btn-primary, .btn-secondary {
+    padding: 0.4rem 1rem;
+    border-radius: 40px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+}
+
+.btn-primary {
+    background: #009688;
+    color: white;
+}
+
+.btn-secondary {
+    background: #2c2c2c;
+    color: #ddd;
+}
+
+.confirm-icon {
+    font-size: 2rem;
+    color: #009688;
+    margin-bottom: 0.8rem;
+    text-align: center;
+    display: block;
+}
+
+/* ================== MODO CLARO ================== */
+body.light-mode {
+    background: linear-gradient(135deg, #f0f0f0, #e0e0e0);
+}
+
+body.light-mode .kanban-header {
+    background: rgba(240,240,240,0.9);
+    border-bottom-color: rgba(0,150,136,0.7);
+}
+
+body.light-mode .logo-area h1 {
+    color: #1a1a1a;
+}
+
+body.light-mode .btn-icon-text {
+    background: #f5f5f5;
+    color: #009688;
+    border-color: #009688;
+}
+
+body.light-mode .btn-icon-text:hover {
+    background: #009688;
+    color: white;
+}
+
+/* Controles de busca e ordenação no modo claro */
+body.light-mode .search-input,
+body.light-mode .sort-select {
+    background: white;
+    border-color: #009688;
+    color: #1a1a1a;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23009688' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 14px;
+}
+
+body.light-mode .search-input::placeholder {
+    color: #888;
+}
+
+body.light-mode .search-box i {
+    color: #009688;
+}
+
+body.light-mode .sort-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23009688' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+body.light-mode .search-input:focus,
+body.light-mode .sort-select:focus {
+    background: #fff;
+    box-shadow: 0 0 0 2px rgba(0,150,136,0.2);
+}
+
+body.light-mode .kanban-column {
+    background: rgba(0,0,0,0.05);
+    border-color: rgba(0,150,136,0.5);
+}
+
+body.light-mode .column-header {
+    background: rgba(0,0,0,0.08);
+}
+
+body.light-mode .column-header h3 {
+    color: #1a1a1a;
+}
+
+body.light-mode .card {
+    background: white;
+    border-color: #ccc;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+body.light-mode .card-nome {
+    color: #111;
+}
+
+body.light-mode .move-btn,
+body.light-mode .delete-card-btn,
+body.light-mode .expand-btn,
+body.light-mode .btn-edit-card {
+    background: #e0e0e0;
+    color: #009688;
+    border: 1px solid #ccc;
+}
+
+body.light-mode .move-btn:hover,
+body.light-mode .delete-card-btn:hover,
+body.light-mode .expand-btn:hover,
+body.light-mode .btn-edit-card:hover {
+    background: #009688;
+    color: white;
+    border-color: #009688;
+}
+
+body.light-mode .card-details {
+    border-top-color: #ddd;
+}
+
+body.light-mode .detail-label {
+    color: #555;
+}
+
+body.light-mode .detail-value {
+    color: #009688;
+}
+
+body.light-mode .modal-card,
+body.light-mode .confirm-card {
+    background: white;
+    border-color: #009688;
+}
+
+body.light-mode .modal-header h3 {
+    color: #1a1a1a;
+}
+
+body.light-mode .field label {
+    color: #333;
+}
+
+body.light-mode .input-light {
+    background: #f5f5f5;
+    border-color: #ccc;
+    color: #111;
+}
+
+body.light-mode .input-light:focus {
+    border-color: #009688;
+    background: #fff;
+}
+
+body.light-mode .btn-secondary {
+    background: #e0e0e0;
+    color: #333;
+}
+
+body.light-mode .btn-secondary:hover {
+    background: #ccc;
+}
+
+body.light-mode .confirm-card p {
+    color: #1a1a1a;
+}
+
+body.light-mode .confirm-icon {
+    color: #009688;
+}
+
+/* Ajuste para o overlay de loading no modo claro */
+body.light-mode .loading-overlay {
+    background: rgba(255,255,255,0.8);
+}
+
+body.light-mode .loading-text {
+    color: #009688;
+}
+
+/* Scrollbar modo claro */
+body.light-mode .kanban-board::-webkit-scrollbar-track {
+    background: #ddd;
+}
+body.light-mode .kanban-board::-webkit-scrollbar-thumb {
+    background: #009688;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.7);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.spinner {
+    width: 36px;
+    height: 36px;
+    border: 3px solid rgba(0,150,136,0.3);
+    border-top-color: #009688;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.kanban-board::-webkit-scrollbar {
+    height: 8px;
+}
+.kanban-board::-webkit-scrollbar-track {
+    background: #2c2c2c;
+    border-radius: 10px;
+}
+.kanban-board::-webkit-scrollbar-thumb {
+    background: #009688;
+    border-radius: 10px;
+}
