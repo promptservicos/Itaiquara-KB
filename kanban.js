@@ -29,17 +29,19 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const candidatesCollection = collection(db, "itaiquarakb");
 
+// NOVA ETAPA "Reprovado" adicionada ao final
 const stages = [
     "Entrevista",
     "Aguardando validação de documento",
     "Aprovado",
     "Exame medico",
     "Assinatura de doc",
-    "Prontos para integração"
+    "Prontos para integração",
+    "Reprovado"
 ];
 
 function getGlobalStageNumber(subEtapa) {
-    return subEtapa + 1;
+    return subEtapa + 1; // agora vai de 1 a 7
 }
 
 let candidates = [];
@@ -326,6 +328,7 @@ function createCardElement(cand) {
             <div class="card-actions-row">
                 <button class="move-btn move-left" ${!hasPrev ? 'disabled style="opacity:0.4;"' : ''}><i class="fas fa-arrow-left"></i></button>
                 <button class="move-btn move-right" ${!hasNext ? 'disabled style="opacity:0.4;"' : ''}><i class="fas fa-arrow-right"></i></button>
+                <button class="reprovar-btn" title="Reprovar candidato"><i class="fas fa-ban"></i></button>
                 <button class="delete-card-btn"><i class="fas fa-trash-alt"></i></button>
                 <button class="expand-btn"><i class="fas fa-chevron-down"></i></button>
             </div>
@@ -560,6 +563,7 @@ function createCardElement(cand) {
     if (!isViewOnly) {
         const moveLeft = header.querySelector('.move-left');
         const moveRight = header.querySelector('.move-right');
+        const reprovarBtn = header.querySelector('.reprovar-btn');
         const deleteBtn = header.querySelector('.delete-card-btn');
         
         if (moveLeft) {
@@ -583,6 +587,20 @@ function createCardElement(cand) {
                 const targetStageName = stages[newStage];
                 showConfirm(`Mover "${cand.nome}" para a etapa "${targetStageName}"?`, async () => {
                     cand.subEtapa = newStage;
+                    cand.ultimaMovimentacao = new Date().toISOString();
+                    await updateCandidateInFirestore(cand.id, cand);
+                });
+            });
+        }
+        if (reprovarBtn) {
+            reprovarBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (currentStage === stages.length - 1) {
+                    alert('Candidato já está reprovado.');
+                    return;
+                }
+                showConfirm(`Reprovar "${cand.nome}"?`, async () => {
+                    cand.subEtapa = stages.length - 1; // vai para "Reprovado"
                     cand.ultimaMovimentacao = new Date().toISOString();
                     await updateCandidateInFirestore(cand.id, cand);
                 });
@@ -778,8 +796,7 @@ function checkAuth() {
         if (!user) {
             window.location.href = 'index.html';
         } else {
-            // Todos os usuários autenticados têm permissão total
-            isViewOnly = false;
+            isViewOnly = false; // todos editam
             addBtn.style.display = 'flex';
             addGlobalControls();
             renderBoard();
