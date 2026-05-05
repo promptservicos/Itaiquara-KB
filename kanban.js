@@ -778,12 +778,9 @@ function checkAuth() {
         if (!user) {
             window.location.href = 'index.html';
         } else {
-            // Remove a restrição de somente leitura para todos os usuários
+            // Todos os usuários autenticados têm permissão total
             isViewOnly = false;
-            
-            // Garante que o botão "Novo Candidato" seja exibido
             addBtn.style.display = 'flex';
-            
             addGlobalControls();
             renderBoard();
             subscribeToCandidates();
