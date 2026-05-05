@@ -47,7 +47,7 @@ let unsubscribeSnapshot = null;
 let currentConfirmCallback = null;
 let isViewOnly = false;
 
-// Elementos DOM
+// DOM elements
 const addBtn = document.getElementById('addEmployeeBtn');
 const logoutBtn = document.getElementById('logoutKanbanBtn');
 const themeToggle = document.getElementById('themeToggle');
@@ -94,7 +94,6 @@ function fileToBase64(file) {
     });
 }
 
-// FUNÇÕES PARA ABRIR IMAGEM BASE64 EM NOVA ABA
 function dataURItoBlob(dataURI) {
     const byteString = atob(dataURI.split(',')[1]);
     const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
@@ -128,7 +127,6 @@ function abrirImagem(base64String, titulo) {
     }
 }
 
-// COMPACTAR IMAGEM (limite padrão: 300 KB)
 async function compactarImagem(file, maxBytes = 300 * 1024) {
     return new Promise((resolve, reject) => {
         if (file.size <= maxBytes) {
@@ -347,7 +345,6 @@ function createCardElement(cand) {
     `;
     cardDiv.appendChild(header);
 
-    // Construir blocos de RG com botões
     let rgHtml = '';
     if (cand.rgFrenteBase64) {
         rgHtml += `<div class="detail-row">
@@ -434,7 +431,6 @@ function createCardElement(cand) {
         const saveEdit = editFieldsDiv.querySelector('.btn-save-edit');
         const cancelEdit = editFieldsDiv.querySelector('.btn-cancel-edit');
         
-        // Botões de remover RG
         const removeButtons = editFieldsDiv.querySelectorAll('.btn-remove-rg');
         removeButtons.forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -461,7 +457,6 @@ function createCardElement(cand) {
             });
         });
         
-        // Upload customizado RG Frente
         const frenteUploadDiv = editFieldsDiv.querySelector('.custom-file-upload[data-target="frente"]');
         const frenteFileInput = editFieldsDiv.querySelector('.edit-rg-frente');
         const frenteFileName = editFieldsDiv.querySelector('#file-name-frente');
@@ -476,7 +471,6 @@ function createCardElement(cand) {
             });
         }
         
-        // Upload customizado RG Verso
         const versoUploadDiv = editFieldsDiv.querySelector('.custom-file-upload[data-target="verso"]');
         const versoFileInput = editFieldsDiv.querySelector('.edit-rg-verso');
         const versoFileName = editFieldsDiv.querySelector('#file-name-verso');
@@ -496,7 +490,6 @@ function createCardElement(cand) {
             editButton.style.display = 'none';
         });
         
-        // Salvar edição
         saveEdit.addEventListener('click', async () => {
             const newNome = editFieldsDiv.querySelector('.edit-nome').value.trim();
             if (!newNome) return;
@@ -544,7 +537,6 @@ function createCardElement(cand) {
     
     cardDiv.appendChild(details);
 
-    // Botões de visualização das imagens
     const viewButtons = cardDiv.querySelectorAll('.btn-view-rg');
     viewButtons.forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -778,6 +770,26 @@ themeToggle.addEventListener('click', () => {
     localStorage.setItem('theme', isLight ? 'light' : 'dark');
     themeToggle.innerHTML = isLight ? '<i class="fas fa-sun"></i> Tema' : '<i class="fas fa-moon"></i> Tema';
 });
+
+function checkAuth() {
+    setLoading(true);
+    onAuthStateChanged(auth, (user) => {
+        setLoading(false);
+        if (!user) {
+            window.location.href = 'index.html';
+        } else {
+            // Remove a restrição de somente leitura para todos os usuários
+            isViewOnly = false;
+            
+            // Garante que o botão "Novo Candidato" seja exibido
+            addBtn.style.display = 'flex';
+            
+            addGlobalControls();
+            renderBoard();
+            subscribeToCandidates();
+        }
+    });
+}
 
 logoutBtn.addEventListener('click', async () => {
     setLoading(true);
