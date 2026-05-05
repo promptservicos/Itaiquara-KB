@@ -794,3 +794,55 @@ body.light-mode .rg-status span {
     background: #009688;
     border-radius: 10px;
 }
+
+.move-btn, .delete-card-btn, .expand-btn {
+    background: #2c2c2c;
+    border: none;
+    color: #009688;
+    width: 28px;
+    height: 28px;
+    border-radius: 28px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+.move-btn:hover, .delete-card-btn:hover, .expand-btn:hover {
+    background: #009688;
+    color: white;
+}
+
+.reprovar-btn {
+    background: #2c2c2c;
+    border: none;
+    color: #c10404;
+    width: 28px;
+    height: 28px;
+    border-radius: 28px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+.reprovar-btn:hover {
+    background: #c10404;
+    color: white;
+}
+
+body.light-mode .reprovar-btn {
+    background: #e0e0e0;
+    color: #c10404;
+    border: 1px solid #ccc;
+}
+
+body.light-mode .reprovar-btn:hover {
+    background: #c10404;
+    color: white;
+    border-color: #c10404;
+}
