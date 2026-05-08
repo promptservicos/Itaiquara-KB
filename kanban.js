@@ -29,7 +29,7 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const candidatesCollection = collection(db, "itaiquarakb");
 
-// NOVA ETAPA "Reprovado" adicionada ao final
+// Etapas do processo
 const stages = [
     "Entrevista",
     "Aguardando validação de documento",
@@ -40,10 +40,6 @@ const stages = [
     "Reprovado"
 ];
 
-function getGlobalStageNumber(subEtapa) {
-    return subEtapa + 1; // agora vai de 1 a 7
-}
-
 let candidates = [];
 let unsubscribeSnapshot = null;
 let currentConfirmCallback = null;
@@ -53,6 +49,7 @@ let isViewOnly = false;
 const addBtn = document.getElementById('addEmployeeBtn');
 const logoutBtn = document.getElementById('logoutKanbanBtn');
 const themeToggle = document.getElementById('themeToggle');
+const themeToggleFab = document.getElementById('themeToggleFab');
 const employeeModal = document.getElementById('employeeModal');
 const confirmModal = document.getElementById('confirmModal');
 const loadingOverlay = document.getElementById('loadingOverlay');
@@ -64,9 +61,18 @@ const confirmMessageSpan = document.getElementById('confirmMessage');
 const confirmYesBtn = document.getElementById('confirmYes');
 const confirmNoBtn = document.getElementById('confirmNo');
 const cancelModalBtn = document.getElementById('cancelModalBtn');
-const modalClose = document.querySelector('.modal-close');
+const modalCloseBtn = document.querySelector('.modal-close-btn');
 const kanbanBoard = document.getElementById('kanbanBoard');
+const globalSearch = document.getElementById('globalSearch');
+const filterTypeSelect = document.getElementById('filterType');
+const sortOrderBtn = document.getElementById('sortOrderBtn');
 
+// Variáveis de filtro e ordenação
+let globalSearchTerm = '';
+let currentFilterType = 'nome_asc';
+let currentSortOrder = 'asc';
+
+// ========== UTILITÁRIOS ==========
 function setLoading(show, message = 'Carregando...') {
     if (show) {
         loadingText.textContent = message;
@@ -81,10 +87,32 @@ function showError(msg) {
     console.error(msg);
 }
 
+function showTemporaryMessage(msg, type = 'info') {
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `toast-message toast-${type}`;
+    messageDiv.innerHTML = `
+        <i class='bx ${type === 'success' ? 'bx-check-circle' : type === 'error' ? 'bx-error-circle' : 'bx-info-circle'}'></i>
+        <span>${msg}</span>
+    `;
+    
+    document.body.appendChild(messageDiv);
+    
+    setTimeout(() => {
+        messageDiv.style.animation = 'slideOut 0.3s ease';
+        setTimeout(() => messageDiv.remove(), 300);
+    }, 3000);
+}
+
 function formatDateTime(isoString) {
     if (!isoString) return '—';
     const d = new Date(isoString);
+    if (isNaN(d.getTime())) return '—';
     return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
 }
 
 function fileToBase64(file) {
@@ -175,6 +203,80 @@ async function compactarImagem(file, maxBytes = 300 * 1024) {
     });
 }
 
+// ========== FUNÇÕES DE ORDENAÇÃO ==========
+function getSortValue(candidate, type) {
+    switch(type) {
+        case 'nome_asc':
+        case 'nome_desc':
+            return (candidate.nome || '').toLowerCase();
+        case 'criacao_asc':
+        case 'criacao_desc':
+            return candidate.dataCriacao ? new Date(candidate.dataCriacao) : 0;
+        default:
+            return (candidate.nome || '').toLowerCase();
+    }
+}
+
+function sortCandidates(candidatesList) {
+    const sortType = currentFilterType;
+    
+    return [...candidatesList].sort((a, b) => {
+        let valueA = getSortValue(a, sortType);
+        let valueB = getSortValue(b, sortType);
+        
+        const isAscending = sortType.includes('asc');
+        
+        if (sortType === 'criacao_asc' || sortType === 'criacao_desc') {
+            if (isAscending) {
+                return valueA - valueB;
+            } else {
+                return valueB - valueA;
+            }
+        }
+        
+        if (isAscending) {
+            if (valueA < valueB) return -1;
+            if (valueA > valueB) return 1;
+            return 0;
+        } else {
+            if (valueA > valueB) return -1;
+            if (valueA < valueB) return 1;
+            return 0;
+        }
+    });
+}
+
+function getFilteredAndSorted() {
+    let filtered = [...candidates];
+    
+    if (globalSearchTerm) {
+        const term = globalSearchTerm.toLowerCase();
+        filtered = filtered.filter(c => c.nome && c.nome.toLowerCase().includes(term));
+    }
+    
+    filtered = sortCandidates(filtered);
+    
+    return filtered;
+}
+
+function updateSortButtonIcon() {
+    if (sortOrderBtn) {
+        const isAscending = currentFilterType.includes('asc');
+        sortOrderBtn.classList.remove('asc', 'desc');
+        sortOrderBtn.classList.add(isAscending ? 'asc' : 'desc');
+        
+        const icon = sortOrderBtn.querySelector('i');
+        if (icon) {
+            if (isAscending) {
+                icon.className = 'bx bx-up-arrow-alt';
+            } else {
+                icon.className = 'bx bx-down-arrow-alt';
+            }
+        }
+    }
+}
+
+// ========== FIREBASE OPERATIONS ==========
 async function addCandidateToFirestore(candidateData) {
     const newId = Date.now().toString();
     const docRef = doc(candidatesCollection, newId);
@@ -205,6 +307,7 @@ function subscribeToCandidates() {
     });
 }
 
+// ========== RENDERIZAÇÃO ==========
 function renderBoard() {
     kanbanBoard.innerHTML = '';
     const columnsContainer = document.createElement('div');
@@ -214,10 +317,15 @@ function renderBoard() {
         const column = document.createElement('div');
         column.className = 'kanban-column';
         column.dataset.stage = stageIdx;
+        
         const colHeader = document.createElement('div');
         colHeader.className = 'column-header';
-        colHeader.innerHTML = `<h3>${stageName}</h3><span class="column-count" id="count-${stageIdx}">0</span>`;
+        colHeader.innerHTML = `
+            <h3 title="${stageName}">${stageName}</h3>
+            <span class="column-count" id="count-${stageIdx}">0</span>
+        `;
         column.appendChild(colHeader);
+        
         const cardsContainer = document.createElement('div');
         cardsContainer.className = 'cards-container';
         cardsContainer.id = `container-${stageIdx}`;
@@ -226,61 +334,6 @@ function renderBoard() {
     });
     
     kanbanBoard.appendChild(columnsContainer);
-    renderAllCards();
-    attachEvents();
-    attachDragAndDrop();
-}
-
-let globalSearchTerm = '';
-let globalSortType = 'nome_asc';
-
-function addGlobalControls() {
-    const headerActions = document.querySelector('.header-actions');
-    if (document.getElementById('globalSearch')) return;
-    
-    const searchDiv = document.createElement('div');
-    searchDiv.className = 'search-box';
-    searchDiv.style.marginRight = 'auto';
-    searchDiv.innerHTML = `
-        <i class="fas fa-search"></i>
-        <input type="text" id="globalSearch" placeholder="Buscar por nome..." class="search-input" style="width: 200px;">
-    `;
-    const sortSelect = document.createElement('select');
-    sortSelect.id = 'globalSort';
-    sortSelect.className = 'sort-select';
-    sortSelect.innerHTML = `
-        <option value="nome_asc">Nome A-Z</option>
-        <option value="nome_desc">Nome Z-A</option>
-        <option value="criacao_asc">Data criação ↑</option>
-        <option value="criacao_desc">Data criação ↓</option>
-    `;
-    headerActions.insertBefore(searchDiv, headerActions.firstChild);
-    headerActions.insertBefore(sortSelect, headerActions.firstChild);
-    
-    document.getElementById('globalSearch').addEventListener('input', (e) => {
-        globalSearchTerm = e.target.value;
-        renderAllCards();
-    });
-    document.getElementById('globalSort').addEventListener('change', (e) => {
-        globalSortType = e.target.value;
-        renderAllCards();
-    });
-}
-
-function getFilteredAndSorted() {
-    let filtered = [...candidates];
-    if (globalSearchTerm) {
-        const term = globalSearchTerm.toLowerCase();
-        filtered = filtered.filter(c => c.nome.toLowerCase().includes(term));
-    }
-    switch(globalSortType) {
-        case 'nome_asc': filtered.sort((a,b) => a.nome.localeCompare(b.nome)); break;
-        case 'nome_desc': filtered.sort((a,b) => b.nome.localeCompare(a.nome)); break;
-        case 'criacao_asc': filtered.sort((a,b) => new Date(a.dataCriacao) - new Date(b.dataCriacao)); break;
-        case 'criacao_desc': filtered.sort((a,b) => new Date(b.dataCriacao) - new Date(a.dataCriacao)); break;
-        default: filtered.sort((a,b) => a.nome.localeCompare(b.nome));
-    }
-    return filtered;
 }
 
 function renderAllCards() {
@@ -292,6 +345,7 @@ function renderAllCards() {
     }
     
     const filteredList = getFilteredAndSorted();
+    
     const grouped = {};
     filteredList.forEach(cand => {
         const stage = cand.subEtapa !== undefined ? cand.subEtapa : 0;
@@ -302,11 +356,16 @@ function renderAllCards() {
     for (let s = 0; s < stages.length; s++) {
         const container = document.getElementById(`container-${s}`);
         const badge = document.getElementById(`count-${s}`);
+        
         if (badge) badge.innerText = (grouped[s] || []).length;
+        
         if (container && grouped[s]) {
-            grouped[s].forEach(cand => container.appendChild(createCardElement(cand)));
+            grouped[s].forEach(cand => {
+                container.appendChild(createCardElement(cand));
+            });
         }
     }
+    
     attachDragAndDrop();
 }
 
@@ -318,6 +377,7 @@ function createCardElement(cand) {
     const currentStage = cand.subEtapa || 0;
     const hasPrev = currentStage > 0;
     const hasNext = currentStage < stages.length - 1;
+    const isReprovado = currentStage === stages.length - 1;
 
     const header = document.createElement('div');
     header.className = 'card-header';
@@ -326,20 +386,21 @@ function createCardElement(cand) {
     if (!isViewOnly) {
         buttonsHtml = `
             <div class="card-actions-row">
-                <button class="move-btn move-left" ${!hasPrev ? 'disabled style="opacity:0.4;"' : ''}><i class="fas fa-arrow-left"></i></button>
-                <button class="move-btn move-right" ${!hasNext ? 'disabled style="opacity:0.4;"' : ''}><i class="fas fa-arrow-right"></i></button>
-                <button class="reprovar-btn" title="Reprovar candidato"><i class="fas fa-ban"></i></button>
-                <button class="delete-card-btn"><i class="fas fa-trash-alt"></i></button>
-                <button class="expand-btn"><i class="fas fa-chevron-down"></i></button>
+                <button class="move-btn move-left" ${!hasPrev ? 'disabled' : ''}><i class='bx bx-chevron-left'></i></button>
+                <button class="move-btn move-right" ${!hasNext || isReprovado ? 'disabled' : ''}><i class='bx bx-chevron-right'></i></button>
+                <button class="reprovar-btn" ${isReprovado ? 'disabled style="opacity:0.4;"' : ''} title="Reprovar candidato"><i class='bx bx-x-circle'></i></button>
+                <button class="delete-card-btn"><i class='bx bx-trash-alt'></i></button>
+                <button class="expand-btn"><i class='bx bx-chevron-down'></i></button>
             </div>
         `;
     } else {
         buttonsHtml = `
             <div class="card-actions-row">
-                <button class="expand-btn"><i class="fas fa-chevron-down"></i></button>
+                <button class="expand-btn"><i class='bx bx-chevron-down'></i></button>
             </div>
         `;
     }
+    
     header.innerHTML = `
         <div class="card-info">
             <div class="card-nome">${escapeHtml(cand.nome)}</div>
@@ -352,13 +413,13 @@ function createCardElement(cand) {
     if (cand.rgFrenteBase64) {
         rgHtml += `<div class="detail-row">
             <span class="detail-label">RG Frente</span>
-            <span class="detail-value"><button class="btn-view-rg" data-rg="frente" style="background:none; border:none; color:#009688; cursor:pointer; text-decoration:underline;">📄 Visualizar</button></span>
+            <span class="detail-value"><button class="btn-view-rg" data-rg="frente">📄 Visualizar</button></span>
         </div>`;
     }
     if (cand.rgVersoBase64) {
         rgHtml += `<div class="detail-row">
             <span class="detail-label">RG Verso</span>
-            <span class="detail-value"><button class="btn-view-rg" data-rg="verso" style="background:none; border:none; color:#009688; cursor:pointer; text-decoration:underline;">📄 Visualizar</button></span>
+            <span class="detail-value"><button class="btn-view-rg" data-rg="verso">📄 Visualizar</button></span>
         </div>`;
     }
 
@@ -427,7 +488,7 @@ function createCardElement(cand) {
         
         const editButton = document.createElement('button');
         editButton.className = 'btn-edit-card';
-        editButton.textContent = '✎ Editar';
+        editButton.innerHTML = '<i class="bx bx-info-circle"></i> Informações';
         details.appendChild(editButton);
         
         const editFieldsDiv = editDiv;
@@ -444,7 +505,7 @@ function createCardElement(cand) {
                     statusSpan.innerHTML = '📄 RG Frente: ❌ Ausente';
                     btn.remove();
                     const fileInput = editFieldsDiv.querySelector('.edit-rg-frente');
-                    fileInput.disabled = false;
+                    if (fileInput) fileInput.disabled = false;
                     const fileNameSpan = editFieldsDiv.querySelector('#file-name-frente');
                     if (fileNameSpan) fileNameSpan.textContent = '';
                 } else {
@@ -453,7 +514,7 @@ function createCardElement(cand) {
                     statusSpan.innerHTML = '📄 RG Verso: ❌ Ausente';
                     btn.remove();
                     const fileInput = editFieldsDiv.querySelector('.edit-rg-verso');
-                    fileInput.disabled = false;
+                    if (fileInput) fileInput.disabled = false;
                     const fileNameSpan = editFieldsDiv.querySelector('#file-name-verso');
                     if (fileNameSpan) fileNameSpan.textContent = '';
                 }
@@ -530,6 +591,7 @@ function createCardElement(cand) {
             }
             
             await updateCandidateInFirestore(cand.id, cand);
+            showTemporaryMessage('Candidato atualizado com sucesso!', 'success');
         });
         
         cancelEdit.addEventListener('click', () => {
@@ -576,6 +638,7 @@ function createCardElement(cand) {
                     cand.subEtapa = newStage;
                     cand.ultimaMovimentacao = new Date().toISOString();
                     await updateCandidateInFirestore(cand.id, cand);
+                    showTemporaryMessage(`Movido para: ${targetStageName}`, 'success');
                 });
             });
         }
@@ -589,33 +652,37 @@ function createCardElement(cand) {
                     cand.subEtapa = newStage;
                     cand.ultimaMovimentacao = new Date().toISOString();
                     await updateCandidateInFirestore(cand.id, cand);
+                    showTemporaryMessage(`Movido para: ${targetStageName}`, 'success');
                 });
             });
         }
-        if (reprovarBtn) {
+        if (reprovarBtn && !isReprovado) {
             reprovarBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                if (currentStage === stages.length - 1) {
-                    alert('Candidato já está reprovado.');
-                    return;
-                }
                 showConfirm(`Reprovar "${cand.nome}"?`, async () => {
-                    cand.subEtapa = stages.length - 1; // vai para "Reprovado"
+                    cand.subEtapa = stages.length - 1;
                     cand.ultimaMovimentacao = new Date().toISOString();
                     await updateCandidateInFirestore(cand.id, cand);
+                    showTemporaryMessage(`Candidato reprovado!`, 'info');
                 });
             });
         }
         if (deleteBtn) {
             deleteBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                showConfirm(`Remover "${cand.nome}" permanentemente?`, async () => await deleteCandidateFromFirestore(cand.id));
+                showConfirm(`Remover "${cand.nome}" permanentemente?`, async () => {
+                    await deleteCandidateFromFirestore(cand.id);
+                    showTemporaryMessage('Candidato removido!', 'success');
+                });
             });
         }
     }
 
     return cardDiv;
 }
+
+// ========== DRAG AND DROP ==========
+let draggedId = null;
 
 function attachDragAndDrop() {
     if (isViewOnly) return;
@@ -636,13 +703,15 @@ function attachDragAndDrop() {
     });
 }
 
-let draggedId = null;
 function dragStart(e) {
     draggedId = e.target.closest('.card').dataset.id;
     e.dataTransfer.setData('text/plain', draggedId);
 }
+
 function dragEnd() { draggedId = null; }
+
 function dragOver(e) { e.preventDefault(); }
+
 function drop(e) {
     e.preventDefault();
     const targetContainer = e.target.closest('.cards-container');
@@ -656,12 +725,12 @@ function drop(e) {
             candidate.subEtapa = targetStage;
             candidate.ultimaMovimentacao = new Date().toISOString();
             await updateCandidateInFirestore(candidate.id, candidate);
+            showTemporaryMessage(`Movido para: ${targetStageName}`, 'success');
         });
     }
 }
 
-function attachEvents() {}
-
+// ========== MODAL ==========
 function openEmployeeModal(employee = null) {
     if (isViewOnly) return;
     if (employee) {
@@ -671,19 +740,12 @@ function openEmployeeModal(employee = null) {
         document.getElementById('empCargo').value = employee.cargo || '';
         document.getElementById('empInicio').value = employee.inicioExpediente || '';
         document.getElementById('empFim').value = employee.fimExpediente || '';
-        document.getElementById('empRgFrente').value = '';
-        document.getElementById('empRgVerso').value = '';
     } else {
-        modalTitle.innerText = 'Adicionar candidato';
+        modalTitle.innerText = 'Novo Candidato';
         editId.value = '';
         employeeForm.reset();
-        document.getElementById('empCargo').value = '';
-        document.getElementById('empInicio').value = '';
-        document.getElementById('empFim').value = '';
-        document.getElementById('empRgFrente').value = '';
-        document.getElementById('empRgVerso').value = '';
     }
-    employeeModal.classList.remove('hidden');
+    employeeModal.style.display = 'flex';
 }
 
 employeeForm.addEventListener('submit', async (e) => {
@@ -738,6 +800,7 @@ employeeForm.addEventListener('submit', async (e) => {
             if (rgFrenteBase64) cand.rgFrenteBase64 = rgFrenteBase64;
             if (rgVersoBase64) cand.rgVersoBase64 = rgVersoBase64;
             await updateCandidateInFirestore(cand.id, cand);
+            showTemporaryMessage('Candidato atualizado!', 'success');
         }
     } else {
         const newCandidate = {
@@ -750,45 +813,182 @@ employeeForm.addEventListener('submit', async (e) => {
             rgVersoBase64: rgVersoBase64
         };
         await addCandidateToFirestore(newCandidate);
+        showTemporaryMessage('Candidato adicionado!', 'success');
     }
-    employeeModal.classList.add('hidden');
+    employeeModal.style.display = 'none';
 });
 
 addBtn.addEventListener('click', () => openEmployeeModal());
-cancelModalBtn.addEventListener('click', () => employeeModal.classList.add('hidden'));
-modalClose?.addEventListener('click', () => employeeModal.classList.add('hidden'));
+cancelModalBtn.addEventListener('click', () => employeeModal.style.display = 'none');
+modalCloseBtn?.addEventListener('click', () => employeeModal.style.display = 'none');
 
+// ========== CONFIRMAÇÃO ==========
 function showConfirm(msg, onConfirm) {
     confirmMessageSpan.innerText = msg;
-    confirmModal.classList.remove('hidden');
+    confirmModal.style.display = 'flex';
     currentConfirmCallback = onConfirm;
 }
+
 confirmYesBtn.addEventListener('click', () => {
-    confirmModal.classList.add('hidden');
+    confirmModal.style.display = 'none';
     if (currentConfirmCallback) currentConfirmCallback();
     currentConfirmCallback = null;
 });
+
 confirmNoBtn.addEventListener('click', () => {
-    confirmModal.classList.add('hidden');
+    confirmModal.style.display = 'none';
     currentConfirmCallback = null;
 });
 
-function initTheme() {
-    const saved = localStorage.getItem('theme');
-    if (saved === 'light') {
-        document.body.classList.add('light-mode');
-        themeToggle.innerHTML = '<i class="fas fa-sun"></i> Tema';
-    } else {
-        themeToggle.innerHTML = '<i class="fas fa-moon"></i> Tema';
-    }
-}
-themeToggle.addEventListener('click', () => {
-    document.body.classList.toggle('light-mode');
-    const isLight = document.body.classList.contains('light-mode');
-    localStorage.setItem('theme', isLight ? 'light' : 'dark');
-    themeToggle.innerHTML = isLight ? '<i class="fas fa-sun"></i> Tema' : '<i class="fas fa-moon"></i> Tema';
+window.addEventListener('click', (e) => {
+    if (e.target === confirmModal) confirmModal.style.display = 'none';
+    if (e.target === employeeModal) employeeModal.style.display = 'none';
 });
 
+// ========== FILTROS E BUSCA ==========
+if (globalSearch) {
+    globalSearch.addEventListener('input', (e) => {
+        globalSearchTerm = e.target.value;
+        renderAllCards();
+    });
+}
+
+if (filterTypeSelect) {
+    filterTypeSelect.addEventListener('change', (e) => {
+        currentFilterType = e.target.value;
+        updateSortButtonIcon();
+        renderAllCards();
+        const orderText = currentFilterType.includes('asc') ? 'crescente' : 'decrescente';
+        showTemporaryMessage(`Ordenando por: ${filterTypeSelect.options[filterTypeSelect.selectedIndex].text} (${orderText})`, 'info');
+    });
+}
+
+if (sortOrderBtn) {
+    sortOrderBtn.addEventListener('click', () => {
+        const isAscending = currentFilterType.includes('asc');
+        if (isAscending) {
+            currentFilterType = currentFilterType.replace('asc', 'desc');
+        } else {
+            currentFilterType = currentFilterType.replace('desc', 'asc');
+        }
+        filterTypeSelect.value = currentFilterType;
+        updateSortButtonIcon();
+        renderAllCards();
+        
+        const orderText = currentFilterType.includes('asc') ? 'crescente' : 'decrescente';
+        const filterText = filterTypeSelect.options[filterTypeSelect.selectedIndex].text;
+        showTemporaryMessage(`Ordenação: ${filterText} (${orderText})`, 'info');
+    });
+}
+
+// ========== EXPORTAR EXCEL ==========
+document.getElementById('exportExcelBtn').addEventListener('click', () => {
+    try {
+        const filtered = getFilteredAndSorted();
+        if (filtered.length === 0) {
+            alert("Nenhum candidato para exportar.");
+            return;
+        }
+        const worksheetData = [
+            ["Nome", "Etapa (progresso)", "Cargo", "Início Expediente", "Fim Expediente", "Data Criação", "Última Movimentação", "RG Frente", "RG Verso"]
+        ];
+        filtered.forEach(cand => {
+            const stageName = stages[cand.subEtapa] || "Etapa inválida";
+            const globalStage = (cand.subEtapa || 0) + 1;
+            const stageWithProgress = `${stageName} (${globalStage}/${stages.length})`;
+            worksheetData.push([
+                cand.nome || "",
+                stageWithProgress,
+                cand.cargo || "",
+                cand.inicioExpediente || "",
+                cand.fimExpediente || "",
+                formatDateTime(cand.dataCriacao),
+                formatDateTime(cand.ultimaMovimentacao),
+                cand.rgFrenteBase64 ? "Presente" : "Ausente",
+                cand.rgVersoBase64 ? "Presente" : "Ausente"
+            ]);
+        });
+        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Kanban Itaiquara");
+        worksheet['!cols'] = [
+            {wch:25}, {wch:35}, {wch:20}, {wch:15}, {wch:15}, {wch:18}, {wch:18}, {wch:12}, {wch:12}
+        ];
+        const fileName = `itaiquara_kanban_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+        showTemporaryMessage('Exportação concluída!', 'success');
+    } catch (error) {
+        console.error("Erro ao exportar Excel:", error);
+        alert("Falha ao gerar o arquivo Excel.");
+    }
+});
+
+// ========== TEMA ==========
+function initTheme() {
+    const savedTheme = localStorage.getItem('theme');
+    const themeIcon = themeToggle?.querySelector('i');
+    const fabIcon = themeToggleFab?.querySelector('i');
+    
+    if (savedTheme === 'dark') {
+        document.body.classList.add('dark');
+        if (themeIcon) {
+            themeIcon.classList.remove('bx-moon');
+            themeIcon.classList.add('bx-sun');
+        }
+        if (fabIcon) {
+            fabIcon.classList.remove('bx-moon');
+            fabIcon.classList.add('bx-sun');
+        }
+        if (themeToggle) themeToggle.innerHTML = '<i class="bx bx-sun"></i> Tema';
+    } else {
+        document.body.classList.remove('dark');
+        if (themeIcon) {
+            themeIcon.classList.remove('bx-sun');
+            themeIcon.classList.add('bx-moon');
+        }
+        if (fabIcon) {
+            fabIcon.classList.remove('bx-sun');
+            fabIcon.classList.add('bx-moon');
+        }
+        if (themeToggle) themeToggle.innerHTML = '<i class="bx bx-moon"></i> Tema';
+    }
+}
+
+function toggleTheme() {
+    document.body.classList.toggle('dark');
+    const isDark = document.body.classList.contains('dark');
+    const themeIcon = themeToggle?.querySelector('i');
+    const fabIcon = themeToggleFab?.querySelector('i');
+    
+    if (isDark) {
+        if (themeIcon) {
+            themeIcon.classList.remove('bx-moon');
+            themeIcon.classList.add('bx-sun');
+        }
+        if (fabIcon) {
+            fabIcon.classList.remove('bx-moon');
+            fabIcon.classList.add('bx-sun');
+        }
+        if (themeToggle) themeToggle.innerHTML = '<i class="bx bx-sun"></i> Tema';
+        localStorage.setItem('theme', 'dark');
+    } else {
+        if (themeIcon) {
+            themeIcon.classList.remove('bx-sun');
+            themeIcon.classList.add('bx-moon');
+        }
+        if (fabIcon) {
+            fabIcon.classList.remove('bx-sun');
+            fabIcon.classList.add('bx-moon');
+        }
+        if (themeToggle) themeToggle.innerHTML = '<i class="bx bx-moon"></i> Tema';
+        localStorage.setItem('theme', 'light');
+    }
+}
+
+themeToggle?.addEventListener('click', toggleTheme);
+themeToggleFab?.addEventListener('click', toggleTheme);
+
+// ========== AUTH ==========
 function checkAuth() {
     setLoading(true);
     onAuthStateChanged(auth, (user) => {
@@ -796,11 +996,11 @@ function checkAuth() {
         if (!user) {
             window.location.href = 'index.html';
         } else {
-            isViewOnly = false; // todos editam
-            addBtn.style.display = 'flex';
-            addGlobalControls();
+            isViewOnly = false;
+            if (addBtn) addBtn.style.display = 'flex';
             renderBoard();
             subscribeToCandidates();
+            updateSortButtonIcon();
         }
     });
 }
@@ -812,48 +1012,6 @@ logoutBtn.addEventListener('click', async () => {
     window.location.href = 'index.html';
 });
 
-function escapeHtml(str) {
-    if (!str) return '';
-    return str.replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
-}
-
-document.getElementById('exportExcelBtn').addEventListener('click', () => {
-    try {
-        const filtered = getFilteredAndSorted();
-        if (filtered.length === 0) {
-            alert("Nenhum candidato para exportar.");
-            return;
-        }
-        const worksheetData = [
-            ["Nome", "Etapa (progresso)", "Cargo", "Início Expediente", "Fim Expediente", "Data Criação", "Última Movimentação"]
-        ];
-        filtered.forEach(cand => {
-            const stageName = stages[cand.subEtapa] || "Etapa inválida";
-            const globalStage = getGlobalStageNumber(cand.subEtapa);
-            const stageWithProgress = `${stageName} (${globalStage}/${stages.length})`;
-            worksheetData.push([
-                cand.nome || "",
-                stageWithProgress,
-                cand.cargo || "",
-                cand.inicioExpediente || "",
-                cand.fimExpediente || "",
-                formatDateTime(cand.dataCriacao),
-                formatDateTime(cand.ultimaMovimentacao)
-            ]);
-        });
-        const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Kanban Itaiquara");
-        worksheet['!cols'] = [
-            {wch:25}, {wch:35}, {wch:20}, {wch:15}, {wch:15}, {wch:18}, {wch:18}
-        ];
-        const fileName = `itaiquara_kanban_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
-    } catch (error) {
-        console.error("Erro ao exportar Excel:", error);
-        alert("Falha ao gerar o arquivo Excel.");
-    }
-});
-
+// ========== INICIALIZAÇÃO ==========
 initTheme();
 checkAuth();

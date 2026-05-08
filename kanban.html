@@ -4,63 +4,122 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
     <title>Kanban Itaiquara | Processo Seletivo</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&display=swap" rel="stylesheet">
+    
+    <!-- Boxicons CDN -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    
+    <!-- Font Awesome CDN -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="kanban.css">
 </head>
 <body>
     <div class="app-container">
+        <!-- Header moderno -->
         <header class="kanban-header">
             <div class="logo-area">
-                <i class="fas fa-columns"></i>
+                <i class='bx bxs-grid-alt'></i>
                 <h1>Kanban Itaiquara</h1>
             </div>
             <div class="header-actions">
-                <button id="addEmployeeBtn" class="btn-icon-text"><i class="fas fa-plus"></i> Novo Candidato</button>
-                <button id="exportExcelBtn" class="btn-icon-text"><i class="fas fa-file-excel"></i> Exportar Excel</button>
-                <button id="themeToggle" class="btn-icon-text"><i class="fas fa-moon"></i> Tema</button>
-                <button id="logoutKanbanBtn" class="btn-icon-text"><i class="fas fa-sign-out-alt"></i> Sair</button>
+                <button id="addEmployeeBtn" class="btn-primary-glass">
+                    <i class='bx bx-plus-circle'></i>
+                    Novo Candidato
+                </button>
+                <button id="exportExcelBtn" class="btn-secondary-glass">
+                    <i class='bx bxs-file-export'></i>
+                    Exportar
+                </button>
+                <button id="themeToggle" class="btn-secondary-glass">
+                    <i class='bx bx-moon'></i>
+                    Tema
+                </button>
+                <button id="logoutKanbanBtn" class="btn-secondary-glass">
+                    <i class='bx bx-arrow-back'></i>
+                    Sair
+                </button>
             </div>
         </header>
 
+        <!-- Barra de ferramentas com busca e ordenação -->
+        <div class="toolbar">
+            <div class="search-box">
+                <i class='bx bx-search'></i>
+                <input type="text" id="globalSearch" placeholder="Buscar por nome...">
+            </div>
+            
+            <div class="filter-group">
+                <button id="sortOrderBtn" class="btn-order asc" title="Ordenar crescente/decrescente">
+                    <i class='bx bx-up-arrow-alt'></i>
+                </button>
+                
+                <div class="filter-select">
+                    <i class='bx bx-filter'></i>
+                    <select id="filterType">
+                        <option value="nome_asc">Nome (A-Z)</option>
+                        <option value="nome_desc">Nome (Z-A)</option>
+                        <option value="criacao_asc">Data criação ↑</option>
+                        <option value="criacao_desc">Data criação ↓</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kanban Board -->
         <div class="kanban-board" id="kanbanBoard"></div>
     </div>
 
-    <!-- Modal de adicionar/editar candidato com anexos RG -->
-    <div id="employeeModal" class="modal hidden">
-        <div class="modal-card">
+    <!-- Botão de alternar tema (canto inferior direito) -->
+    <button id="themeToggleFab" class="theme-toggle-bottom" aria-label="Alternar tema">
+        <i class='bx bx-moon'></i>
+    </button>
+
+    <!-- Modal de adicionar/editar candidato -->
+    <div id="employeeModal" class="modal" style="display: none;">
+        <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modalTitle">Adicionar candidato</h3>
-                <button class="modal-close"><i class="fas fa-times"></i></button>
+                <h3 id="modalTitle">Novo Candidato</h3>
+                <button class="modal-close-btn"><i class='bx bx-x'></i></button>
             </div>
             <form id="employeeForm">
-                <div class="field">
-                    <label>Nome completo</label>
-                    <input type="text" id="empNome" required class="input-light">
+                <div class="input-box">
+                    <i class='bx bx-user'></i>
+                    <input type="text" id="empNome" required placeholder="Nome completo *">
                 </div>
-                <div class="field">
-                    <label>Cargo</label>
-                    <input type="text" id="empCargo" class="input-light" placeholder="Ex: Analista de RH">
+                <div class="input-box">
+                    <i class='bx bx-briefcase'></i>
+                    <input type="text" id="empCargo" placeholder="Cargo (opcional)">
                 </div>
-                <div class="field">
-                    <label>Início do expediente</label>
-                    <input type="time" id="empInicio" class="input-light">
+                <div class="input-row">
+                    <div class="input-box half">
+                        <i class='bx bx-time'></i>
+                        <input type="time" id="empInicio" placeholder="Início">
+                    </div>
+                    <div class="input-box half">
+                        <i class='bx bx-time-five'></i>
+                        <input type="time" id="empFim" placeholder="Término">
+                    </div>
                 </div>
-                <div class="field">
-                    <label>Término do expediente</label>
-                    <input type="time" id="empFim" class="input-light">
+                
+                <!-- ANEXOS RG -->
+                <div class="input-box file-input">
+                    <i class='bx bx-id-card'></i>
+                    <label class="file-label">
+                        <span>RG Frente (imagem)</span>
+                        <input type="file" id="empRgFrente" accept="image/jpeg,image/png,image/jpg">
+                        <small>Máx. 200KB (JPG/PNG)</small>
+                    </label>
                 </div>
-
-                <!-- ANEXOS -->
-                <div class="field">
-                    <label>RG Frente (imagem)</label>
-                    <input type="file" id="empRgFrente" accept="image/jpeg,image/png,image/jpg" class="input-light">
-                    <small style="color:#aaa;">Máx. 200KB (JPG/PNG)</small>
-                </div>
-                <div class="field">
-                    <label>RG Verso (imagem)</label>
-                    <input type="file" id="empRgVerso" accept="image/jpeg,image/png,image/jpg" class="input-light">
-                    <small style="color:#aaa;">Máx. 200KB (JPG/PNG)</small>
+                <div class="input-box file-input">
+                    <i class='bx bx-id-card'></i>
+                    <label class="file-label">
+                        <span>RG Verso (imagem)</span>
+                        <input type="file" id="empRgVerso" accept="image/jpeg,image/png,image/jpg">
+                        <small>Máx. 200KB (JPG/PNG)</small>
+                    </label>
                 </div>
 
                 <input type="hidden" id="editId" value="">
@@ -73,9 +132,11 @@
     </div>
 
     <!-- Modal de confirmação -->
-    <div id="confirmModal" class="modal hidden">
-        <div class="confirm-card">
-            <i class="fas fa-question-circle confirm-icon"></i>
+    <div id="confirmModal" class="modal" style="display: none;">
+        <div class="modal-content confirm-modal">
+            <div class="confirm-icon">
+                <i class='bx bx-question-mark'></i>
+            </div>
             <p id="confirmMessage">Confirmar ação?</p>
             <div class="confirm-actions">
                 <button id="confirmNo" class="btn-secondary">Não</button>
@@ -84,6 +145,7 @@
         </div>
     </div>
 
+    <!-- Loading Overlay -->
     <div id="loadingOverlay" class="loading-overlay hidden">
         <div class="spinner"></div>
         <div class="loading-text">Carregando...</div>
