@@ -29,16 +29,47 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const candidatesCollection = collection(db, "itaiquarakb");
 
-// Etapas do processo
+// Etapas do processo (nova ordem)
 const stages = [
-    "Entrevista",
-    "Aguardando validação de documento",
-    "Aprovado",
-    "Exame medico",
-    "Assinatura de doc",
-    "Prontos para integração",
-    "Reprovado"
+    "Em entrevista",                       // 0 (antigo "Entrevista")
+    "Aguardando pesquisa",                 // 1 (antigo "Aguardando validação de documento")
+    "Aprovado na pesquisa",                // 2 (antigo "Aprovado")
+    "Aguardando realização de exame",      // 3 (antigo "Exame medico")
+    "Aguardando resultado do exame",       // 4 (NOVO)
+    "Assinando documentos",                // 5 (antigo "Assinatura de doc")
+    "Prontos para integração",             // 6 (antigo "Prontos para integração")
+    "Integrados",                          // 7 (NOVO)
+    "Reprovados"                           // 8 (antigo "Reprovado")
 ];
+
+// Mapeamento de índices antigos (0..6) para novos (0..8)
+const oldToNewStageMap = {
+    0: 0,  // Entrevista -> Em entrevista
+    1: 1,  // Aguardando validação de documento -> Aguardando pesquisa
+    2: 2,  // Aprovado -> Aprovado na pesquisa
+    3: 3,  // Exame medico -> Aguardando realização de exame médico
+    4: 5,  // Assinatura de doc -> Assinando documentos
+    5: 6,  // Prontos para integração -> Prontos para integração
+    6: 8   // Reprovado -> Reprovados
+};
+
+let migrationExecuted = false; // Evita múltiplas migrações
+
+async function migrateCandidateStage(candidate) {
+    const oldStage = candidate.subEtapa;
+    // Se o candidato ainda usa o índice antigo (0..6) e a migração ainda não foi feita globalmente
+    if (!migrationExecuted && oldStage !== undefined && oldStage <= 6 && stages.length === 9) {
+        const newStage = oldToNewStageMap[oldStage];
+        if (newStage !== undefined && newStage !== oldStage) {
+            console.log(`Migrando candidato ${candidate.nome} da etapa ${oldStage} para ${newStage}`);
+            candidate.subEtapa = newStage;
+            candidate.ultimaMovimentacao = new Date().toISOString();
+            await updateCandidateInFirestore(candidate.id, candidate);
+            return true;
+        }
+    }
+    return false;
+}
 
 let candidates = [];
 let unsubscribeSnapshot = null;
@@ -296,9 +327,38 @@ async function deleteCandidateFromFirestore(id) {
 function subscribeToCandidates() {
     if (unsubscribeSnapshot) unsubscribeSnapshot();
     const q = query(candidatesCollection);
-    unsubscribeSnapshot = onSnapshot(q, (snapshot) => {
+    unsubscribeSnapshot = onSnapshot(q, async (snapshot) => {  // <-- adicione async
         candidates = [];
         snapshot.forEach(doc => candidates.push(doc.data()));
+        
+        // --- Migração automática ---
+        let migrationNeeded = false;
+        for (const cand of candidates) {
+            if (!migrationExecuted && cand.subEtapa !== undefined && cand.subEtapa <= 6 && stages.length === 9) {
+                migrationNeeded = true;
+                break;
+            }
+        }
+        
+        if (migrationNeeded && !migrationExecuted) {
+            migrationExecuted = true;  // impede nova tentativa durante o loop
+            setLoading(true, "Atualizando estrutura do Kanban...");
+            const updatePromises = [];
+            for (const cand of candidates) {
+                if (cand.subEtapa !== undefined && cand.subEtapa <= 6) {
+                    const promise = migrateCandidateStage(cand);
+                    updatePromises.push(promise);
+                }
+            }
+            await Promise.all(updatePromises);
+            setLoading(false);
+            // Recarrega os dados após migração
+            if (unsubscribeSnapshot) unsubscribeSnapshot();
+            subscribeToCandidates();
+            return;
+        }
+        // -------------------------
+        
         candidates.sort((a,b) => a.id - b.id);
         renderAllCards();
     }, (error) => {
