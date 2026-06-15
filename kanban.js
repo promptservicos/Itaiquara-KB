@@ -33,14 +33,10 @@ const candidatesCollection = collection(db, "itaiquarakb");
 const stages = [
     "Entrevista",
     "Aguardando validação de documento",
-    "Aprovado na pesquisa",        // Modificado de "Aprovado" para "Aprovado na pesquisa"
-    "Enviado para Itaiquara",      // NOVA ETAPA
+    "Aprovado",
     "Exame medico",
     "Assinatura de doc",
     "Prontos para integração",
-    "Integrados",                   // NOVA ETAPA (antes era "Prontos para integração" e agora tem "Integrados" depois)
-    "Ativos",                       // NOVA ETAPA
-    "Desistentes",                  // NOVA ETAPA
     "Reprovado"
 ];
 
