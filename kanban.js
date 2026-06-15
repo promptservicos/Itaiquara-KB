@@ -29,18 +29,14 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 const candidatesCollection = collection(db, "itaiquarakb");
 
-// Etapas do processo - ATUALIZADO COM AS NOVAS ETAPAS
+// Etapas do processo
 const stages = [
     "Entrevista",
     "Aguardando validação de documento",
-    "Aprovado na pesquisa",
-    "Enviado para Itaiquara",
+    "Aprovado",
     "Exame medico",
     "Assinatura de doc",
     "Prontos para integração",
-    "Integrados",
-    "Ativos",
-    "Desistentes",
     "Reprovado"
 ];
 
