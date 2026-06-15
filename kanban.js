@@ -34,7 +34,7 @@ const stages = [
     "Entrevista",
     "Aguardando validação de documento",
     "Aprovado na pesquisa",
-    "Enviado para Itaiquara",
+    "Enviado para Itaiquara (Visita)",
     "Exame medico",
     "Assinatura de doc",
     "Prontos para integração",
